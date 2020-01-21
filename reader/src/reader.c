@@ -6,6 +6,7 @@
 #include <signal.h>
 #include <getopt.h>
 #include <sys/wait.h>
+#include <errno.h>
 
 #include "nbvec.h"
 #include "shared.h"
@@ -24,7 +25,7 @@ int publish(book_t book) {
     book_msg_t book_msg;
     nbvec *vec;
 
-    lower_sem(0);
+    //lower_sem(0);
     for (book_id = 0; book_id < book_cap; book_id++) {
         lower_sem(2);
         if (vecs[book_id].nset == 0)
@@ -63,7 +64,7 @@ int read_book(int id) {
     book_msg_t book_msg;
     nbvec *vec;
     int x;
-    x = 1;
+    x = 2;
     do {
         for (book_id = 0; book_id < book_cap; book_id++) {
             if (isbset(&vecs[book_id], id)) {
@@ -127,7 +128,12 @@ void reader(int id) {
             raise_sem(3);
         } else { // writer
             book_t book;
-            int bid; // book's id
+            int bid; // book id
+
+            // [lower bookshelf semaphore before even attempting to write]
+            if (try_lower_sem(0) == EAGAIN)
+                continue;
+
             lower_sem(5);
             (*n_writers)++;
             raise_sem(5);
@@ -141,13 +147,16 @@ void reader(int id) {
             // read (at most) 1 book
             states[id].b = read_book(id);
 
-            // write
+            // create a book
             states[id].state = 'b';
             random_sleep(t_write);
             book.author = id;
             book.text[0] = 'A'+rand()%26;
             book.text[1] = 'a'+rand()%26;
             
+            // [release the lock on library earlier]
+            
+
             // publish
             bid = publish(book);
             
@@ -155,13 +164,14 @@ void reader(int id) {
                 states[id].state = 'X';
             } else if (bid == -2) {
                 fprintf(stderr, "ERROR. Bookshelf unexpectedly full.\n"); // impossible
+                states[id].state = 'D';
                 exit(1);
             }
             lower_sem(5);
             (*n_writers)--;
             raise_sem(5);
             
-            // release the lock on library
+            // [release the lock on library]
             raise_sem(1);
         }
     }

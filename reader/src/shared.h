@@ -6,6 +6,7 @@
 #include <sys/sem.h>
 #include <stdio.h>
 #include <stdlib.h>
+#include <errno.h>
 
 #include "types.h"
 
@@ -42,6 +43,17 @@ void lower_sem(int semnum) {
         snprintf(msg, 64, "Lowering sem %d on %d", semnum, semid);
         perror(msg);
     }
+}
+
+int try_lower_sem(int semnum) {
+    static struct sembuf buf = {0, -1, IPC_NOWAIT};
+    buf.sem_num = semnum;
+    if (semop(semid, &buf, 1) == -1) {
+        if (errno != EAGAIN)
+            perror("Trying to lower sem");
+        return errno;
+    }
+    return 0;
 }
 
 void configure_shared(int add_flag) {
