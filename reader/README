@@ -1,0 +1,16 @@
+Kompilacja:
+$ make
+... lub, jeżeli przewidziano działanie lp>64 procesów:
+$ make CFLAGS+=-DMAX_READERS=lp
+
+Uruchomienie:
+$ ./reader [-n liczba_procesów] [-b pojemność_półki] [-t czas_czytania,czas_pisania,czas_relaksu]
+Uwagi:
+czasy należy podawać w milisekundach
+
+Opis zawartości:
+diag.h - funkcje diagnostyczne, wypisywanie stanu do konsoli
+nbvec.h - implementacja wektora n-bitowego
+reader.c - funkcja main i kod pisarza/czytelnika
+shared.h - funkcje i zmienne do obsługi mechanizmów IPC
+types.h - definicje typów danych
