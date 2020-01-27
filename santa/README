@@ -1,2 +1,9 @@
 Kompilacja:
 $ make
+
+Uruchomienie:
+$ ./santa [długość podróży/konsultacji [średnia długość odpoczynku]]
+czasy należy podawać w milisekundach
+
+Opis zawartości:
+santa.c - kod wykonywany przez Mikołaja, elfa, renifera; tworzenie wątków

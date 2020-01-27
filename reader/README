@@ -1,11 +1,10 @@
 Kompilacja:
 $ make
-... lub, jeżeli przewidziano działanie lp>64 procesów:
+... lub, jeżeli przewidziano działanie na raz lp procesów, lp > 64:
 $ make CFLAGS+=-DMAX_READERS=lp
 
 Uruchomienie:
 $ ./reader [-n liczba_procesów] [-b pojemność_półki] [-t czas_czytania,czas_pisania,czas_relaksu]
-Uwagi:
 czasy należy podawać w milisekundach
 
 Opis zawartości:

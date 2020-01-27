@@ -1,0 +1,44 @@
+STRUKTURY DANYCH:
+Każdemu z procesów przypisany jest w momencie tworzenia unikalny indeks 0..n-1. W tablicy states przechowywany jest 
+pod nim stan danego procesu reprezentowany jako pole state typu char struktury state_t ('R' - reader, 'W' - writer).
+Struktura state_t jest dopełniona do 4 bajtów polami o charakterze diagnostycznym. Dane pod określonym indeksem 
+
+W tablicy vecs o długości równej liczbie książek mieszczących się na półce przechowywane są wielobitowe wektory,
+w których ustawiony bit na pozycji k oznacza, że proces k był w roli czytelnika w momencie wydania danej książki
+i nie przeczytał jej jeszcze.
+
+Książki reprezentowane są przez typ 4-bajtowy zawierający 2-bajtowy indeks autora oraz 2 znaki ASCII treści. 
+Wydawanie książki, jak również pobieranie z półki i odkładanie na nią, odbywa się za pomocą komunikatów typu book_msg_t.
+Typ komunikatu (mtype) pełni rolę identyfikatora książki, a jego pozostałe 4 bajty stanowi książka. Czytelnik może więc
+spróbować wziąć konkretną książkę z półki, podając jej identyfikator jako argument do funkcji msgrcv.
+
+DZIAŁANIE:
+Każdy proces działa w nieskończonej pętli. Po odczekaniu losowego czasu z zadanego przedziału obiera dla siebie rolę 
+pisarza lub czytelnika i umieszcza informację o niej w tablicy states. Następnie próbuje uzyskać dostęp do czytelni 
+- pisarz wyłączny, czytelnik łączny z innymi czytelnikami. 
+Pisarz próbuje dodatkowo opuścić semafor 0 z flagą IPC_NOWAIT, co, jeśli jest możliwe, oznacza, że zarezerwował dla siebie 
+miejsce na półce. Jeżeli operacja semop zwróci EAGAIN, to na półce nie ma miejsca - pisarz nie jest wpuszczany
+do czytelni; pozostaje w fazie relaksu i ma szansę znów zmienić swój stan.
+
+By wejść do czytelni, każdy proces opuszcza najpierw semafor 4, następnie czytelnik inkrementuje n_readers, o dostępie 
+chronionym przez semafor 3, a w przypadku gdy jest to pierwszy czytelnik (n_readers=1), opuszcza semafor 1.
+Pisarz (każdy) także opuszcza semafor 1. Przy wyjściu w sposób analogiczny n_readers jest dekrementowane, 
+a semafor 1 podnoszony. Zatem do momentu ponownego podniesienia go, w czytelni przebywa albo minimalnie
+1 czytelnik, albo dokładnie 1 pisarz, gdyż każda kolejna próba opuszczenia semafora 1 blokuje dany proces. Dopiero za tym 
+miejscem podnoszony jest semafor 4, który zapobiega głodzeniu procesów. Gdyby go pominąć, mogłoby dojść do sytuacji, 
+w której pisarz nigdy nie wszedłby do czytelni, bo jeżeli czytelnicy odpowiednio często wchodziliby do pomieszczenia, nigdy
+żaden z wychodzących nie byłby ostatnim i nie podniósłby semafora 1.
+
+Po wejściu do czytelni każdy proces, posługując się tablicą vecs, wybiera książkę, której jeszcze nie przeczytał, odbiera
+ją z półki-kolejki, zeruje odpowiedni bit w tablicy i jeżeli jakiś proces jeszcze nie czytał tej książki, a powinien, to odkłada ją na półkę.
+W przeciwnym wypadku podnosi semafor 0, czym zwalnia miejsce na półce. Dostęp do wektora z tablicy vecs jest wyłączny, co zapewnia semafor 2.
+Następnie czytelnik wychodzi z czytelni, a pisarz piszę książkę i wybiera dla niej pierwszy wolny identyfikator książki "i" (numerowany od 1). 
+Posługując się tablicą states, "dedykuje" ją - to znaczy ustawia bity i-tego wektora o indeksach równych indeksom procesów w roli czytelnika.
+Następnie umieszcza komunikat z treścią książki i typem "i" w kolejce, po czym wychodzi z czytelni.
+
+INFORMACJE WYPISYWANE W KONSOLI:
+W pierwszym wierszu widnieje informacja o liczbie czytelników, bądź pisarzy wewnątrz czytelni.
+Następnie, wierszami: identyfikatory procesów, ich stany (mała litera oznacza, że proces jest w czytelni), ostanie przeczytane przez nie książki 
+oraz liczby zadedykowanych im książek.
+Kolejne wiersze przedstawiają stan półki: ideantyfikatory książek, w nawiasie liczba procesów, a za ":" identyfikatory procesów, 
+które muszą przeczytać daną książkę, zanim zostanie ona usunięta.
