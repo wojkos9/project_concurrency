@@ -63,18 +63,13 @@ int read_book(int id) {
     int book_id;
     book_msg_t book_msg;
     nbvec *vec;
-    int x;
-    x = 2;
-    do {
-        for (book_id = 0; book_id < book_cap; book_id++) {
-            if (isbset(&vecs[book_id], id)) {
-                if (msgrcv(msqid, &book_msg, sizeof(book_t), book_id+1, (x==0)?IPC_NOWAIT:0) != -1) {
-                    goto found_book;
-                }
+    for (book_id = 0; book_id < book_cap; book_id++) {
+        if (isbset(&vecs[book_id], id)) {
+            if (msgrcv(msqid, &book_msg, sizeof(book_t), book_id+1, IPC_NOWAIT) != -1) {
+                goto found_book;
             }
         }
     }
-    while (++x < 2);
     return 0;
     found_book:
     random_sleep(t_read);
@@ -134,12 +129,14 @@ void reader(int id) {
             if (try_lower_sem(0) == EAGAIN)
                 continue;
 
+            lower_sem(4);
+            lower_sem(1);
+
+            // only needed for diagnostics
             lower_sem(5);
             (*n_writers)++;
             raise_sem(5);
 
-            lower_sem(4);
-            lower_sem(1);
             raise_sem(4);
 
             states[id].state = 'w';
@@ -148,13 +145,11 @@ void reader(int id) {
             states[id].b = read_book(id);
 
             // create a book
-            states[id].state = 'b';
+            //states[id].state = 'b';
             random_sleep(t_write);
             book.author = id;
             book.text[0] = 'A'+rand()%26;
             book.text[1] = 'a'+rand()%26;
-            
-            // [release the lock on library earlier]
             
 
             // publish

@@ -157,10 +157,10 @@ int main(int argc, char *argv[]) {
     int elf_ids[10];
 
     if (argc > 1)
-        santa_op_time = atoi(argv[1]);
+        santa_op_time = atoi(argv[1])*1000;
 
     if (argc > 2)
-        average_rest_time = atoi(argv[2]);
+        average_rest_time = atoi(argv[2])*1000;
 
     for (i = 0; i < 9; i++) {
         ids[i] = i;
