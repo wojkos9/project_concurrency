@@ -87,12 +87,10 @@ void* reindeer(void *p) {
         usleep(t * average_rest_time/10);
         reindeer_states[id] = 'W';
 
-        int npassed = 1;
-        while (npassed) {
-            pthread_mutex_lock(&mut);
-            npassed = pthread_mutex_trylock(&reindeer_mutex); // to safely change state
-            pthread_mutex_unlock(&mut);
-        }
+        pthread_mutex_lock(&mut);
+        pthread_mutex_lock(&reindeer_mutex);
+        pthread_mutex_unlock(&mut);
+
         ++num_reindeer;
         if (num_reindeer == 9) {
             pthread_mutex_unlock(&reindeer_mutex); // so others can enter
@@ -122,13 +120,10 @@ void* elf(void *p) {
         t = rand()%20;
         usleep(t * average_rest_time/10);
         elf_states[id] = 'W';
-        
-        int npassed = 1;
-        while (npassed) {
-            pthread_mutex_lock(&mut1);
-            npassed = pthread_mutex_trylock(&elf_mutex); // to safely change state
-            pthread_mutex_unlock(&mut1);
-        }
+
+        pthread_mutex_lock(&mut1);
+        pthread_mutex_lock(&elf_mutex);
+        pthread_mutex_unlock(&mut1);
         
         ++num_elves;
         if (num_elves == 3) {
