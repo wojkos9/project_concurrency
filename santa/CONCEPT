@@ -10,10 +10,12 @@ móc bezpiecznie zasygnalizować gotowość (jest to możliwe, gdy Mikołaj śpi
 Następnie ponownie zajmuje elf_mutex (by Mikołaj nie mógł rozpocząć konsultacji, zanim elf 3 nie rozpocznie oczekiwania na zmienną warunkową) i dopiero wtedy 
 zwalnia santa_mutex. 
     Gdy elfy (łącznie z elfem 3) oczekują na konsultację, Mikołaj może przejść do blokowania wejścia kolejnym elfom (mutex elves_enter) i do 
-pozyskiwania elf_mutex. Sygnalizuje rozpoczęcie konsultacji i czekając aż wszystkie elfy zmienią swój stan na 'C' (konsultowany), zwalnia elf_mutex. 
-Gdy ostatni elf zmieni stan, sygnalizuje to Mikołajowi, który zmienia stan na konsultujący - 'c'.
+pozyskiwania elf_mutex. Sygnalizuje rozpoczęcie konsultacji i czekając aż wszystkie elfy zmienią swój stan na 'C' (konsultowany), zwalnia elf_mutex.
+Po zmianie stanu elfy dekrementują num_elves, by było wiadomo, kiedy wszystkie zmienią stan (num_elves=0).
+Gdy ostatni elf zmieni stan, sygnalizuje to Mikołajowi, który zmienia stan na konsultujący - 'c', jednak dopiero, gdy elf zwolni elf_mutex, 
+wywołując pthread_cond_wait.
     Przez czas santa_op_time elfy są konsultowane, czekając aż Mikołaj zasygnalizuje na elves_can_rest. Po otrzymaniu
-informacji o możliwości spoczynku, każdy z elfów dekrementuje num_elves zwalnia elf_mutex. Mikołaj  zwalnia elves_enter, umożliwiając kolejnym elfom wejście. 
+informacji o możliwości spoczynku, każdy z elfów zwalnia elf_mutex. Mikołaj zwalnia elves_enter, umożliwiając kolejnym elfom wejście. 
 Ponieważ wejście elfów i reniferów wymaga pozyskania 2 różnych mutexów (elves_enter i reindeer_enter), podczas konsultacji elfów renifery mogły 
 wejść i być może już oczekują na podróż.
 
