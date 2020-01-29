@@ -5,8 +5,8 @@
 #include <time.h>
 
 
-pthread_mutex_t mut = PTHREAD_MUTEX_INITIALIZER;
-pthread_mutex_t mut1 = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t reindeer_enter = PTHREAD_MUTEX_INITIALIZER;
+pthread_mutex_t elves_enter = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t santa_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t elf_mutex = PTHREAD_MUTEX_INITIALIZER;
 pthread_mutex_t reindeer_mutex = PTHREAD_MUTEX_INITIALIZER;
@@ -30,40 +30,44 @@ void* santa(void *p) {
     pthread_mutex_lock(&santa_mutex);
     while(1) {
         if (ready[0]) {
-            pthread_mutex_lock(&mut); // locks reindeer's entrance
+            pthread_mutex_lock(&reindeer_enter); // locks reindeer's entrance
             pthread_mutex_lock(&reindeer_mutex);
             ready[0] = 0;
-            pthread_cond_broadcast(&reindeer_travel);
-            pthread_mutex_unlock(&reindeer_mutex);
 
+            // signal travel
+            pthread_cond_broadcast(&reindeer_travel);
+            // wait until all reindeer set state to travelling
+            pthread_cond_wait(&santa_wakeup, &reindeer_mutex);
+
+            // travel
             santa_state = 'T';
             usleep(santa_op_time);
             santa_state = 'E';
-            while (pthread_mutex_lock(&reindeer_mutex), num_reindeer) {
-                pthread_cond_broadcast(&reindeer_can_rest);
-                pthread_mutex_unlock(&reindeer_mutex);
-            }
-            santa_state = 'L';
+
+            pthread_cond_broadcast(&reindeer_can_rest);
             pthread_mutex_unlock(&reindeer_mutex);
-            pthread_mutex_unlock(&mut);
+            santa_state = 'L';
+
+            pthread_mutex_unlock(&reindeer_enter);
         } else if (ready[1]) {
-            pthread_mutex_lock(&mut1); // locks elves' entrance
+            pthread_mutex_lock(&elves_enter); // locks elves' entrance
             pthread_mutex_lock(&elf_mutex);
             ready[1] = 0;
+            // signal consult
             pthread_cond_broadcast(&elves_consulted);
-            pthread_mutex_unlock(&elf_mutex);
+            // wait until all confirm
+            pthread_cond_wait(&santa_wakeup, &elf_mutex);
 
+            // consult
             santa_state = 'c';
             usleep(santa_op_time);
             santa_state = 'e';
-            while (pthread_mutex_lock(&elf_mutex), num_elves) {
-                pthread_cond_broadcast(&elves_can_rest);
-                pthread_mutex_unlock(&elf_mutex);
-            }
+
+            pthread_cond_broadcast(&elves_can_rest);
+            pthread_mutex_unlock(&elf_mutex);
             santa_state = 'l';
             
-            pthread_mutex_unlock(&elf_mutex);
-            pthread_mutex_unlock(&mut1);
+            pthread_mutex_unlock(&elves_enter);
         } else {
             santa_state = 'S';
             pthread_cond_wait(&santa_wakeup, &santa_mutex);
@@ -88,9 +92,9 @@ void* reindeer(void *p) {
         usleep(t * average_rest_time/10);
         reindeer_states[id] = 'W';
 
-        pthread_mutex_lock(&mut);
+        pthread_mutex_lock(&reindeer_enter);
         pthread_mutex_lock(&reindeer_mutex);
-        pthread_mutex_unlock(&mut);
+        pthread_mutex_unlock(&reindeer_enter);
 
         ++num_reindeer;
         if (num_reindeer == 9) {
@@ -106,8 +110,14 @@ void* reindeer(void *p) {
         pthread_cond_wait(&reindeer_travel, &reindeer_mutex); // at least 9 will reach this line before santa travels
         //santa has reindeer_mutex, signals travel and unlocks
         reindeer_states[id] = 'T';
-        pthread_cond_wait(&reindeer_can_rest, &reindeer_mutex);
+
         --num_reindeer;
+        if (num_reindeer == 0) {
+            pthread_cond_signal(&santa_wakeup);
+        }
+
+        pthread_cond_wait(&reindeer_can_rest, &reindeer_mutex);
+        
         pthread_mutex_unlock(&reindeer_mutex);
     }
 }
@@ -122,9 +132,9 @@ void* elf(void *p) {
         usleep(t * average_rest_time/10);
         elf_states[id] = 'W';
 
-        pthread_mutex_lock(&mut1);
+        pthread_mutex_lock(&elves_enter);
         pthread_mutex_lock(&elf_mutex);
-        pthread_mutex_unlock(&mut1);
+        pthread_mutex_unlock(&elves_enter);
         
         ++num_elves;
         if (num_elves == 3) {
@@ -132,16 +142,22 @@ void* elf(void *p) {
             pthread_mutex_lock(&santa_mutex); // ...because it will wait here
             ready[1] = 1;
             pthread_cond_signal(&santa_wakeup);
-            pthread_mutex_lock(&elf_mutex); // so santa can't travel without this elf
+            pthread_mutex_lock(&elf_mutex); // so santa can't consult without this elf
             pthread_mutex_unlock(&santa_mutex);
         }
         
         elf_states[id] = 'w';
-        pthread_cond_wait(&elves_consulted, &elf_mutex); // at least 3 will reach this line before santa travels
-        //santa has elf_mutex, signals travel and unlocks
+        pthread_cond_wait(&elves_consulted, &elf_mutex); // at least 3 will reach this line before santa consults
+        //santa has elf_mutex, signals consults and unlocks
         elf_states[id] = 'C';
-        pthread_cond_wait(&elves_can_rest, &elf_mutex);
+
         --num_elves;
+        if (num_elves == 0) {
+            pthread_cond_signal(&santa_wakeup);
+            
+        }
+        pthread_cond_wait(&elves_can_rest, &elf_mutex);
+        elf_states[id] = 'Z';
         pthread_mutex_unlock(&elf_mutex);
     }
 }
