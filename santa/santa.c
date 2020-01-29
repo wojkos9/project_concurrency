@@ -79,11 +79,12 @@ char elf_states[10];
 
 void* reindeer(void *p) {
     int id = *(int*)p;
-    srand(time(NULL) + id);
+    unsigned int seed = time(NULL)+id;
+
     while(1) {
         int t;
         reindeer_states[id] = 'r';
-        t = rand()%20;
+        t = rand_r(&seed)%20;
         usleep(t * average_rest_time/10);
         reindeer_states[id] = 'W';
 
@@ -113,11 +114,11 @@ void* reindeer(void *p) {
 
 void* elf(void *p) {
     int id = *(int*)p;
-    srand(time(NULL)+id+9);
+    unsigned int seed = time(NULL)+id+9;
     while(1) {
         int t;
         elf_states[id] = 'r';
-        t = rand()%20;
+        t = rand_r(&seed)%20;
         usleep(t * average_rest_time/10);
         elf_states[id] = 'W';
 
